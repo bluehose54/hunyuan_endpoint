@@ -29,7 +29,23 @@ SCRIPT_NAME = os.getenv("HUNYUAN_SCRIPT", "sample_video.py")
 # ---- Output ----
 OUTPUT_ROOT = os.getenv("HUNYUAN_OUTPUT_ROOT", "/tmp/hunyuan_results")
 
+def _ls(p):
+    try:
+        return sorted(os.listdir(p))[:200]
+    except Exception as e:
+        return [f"<err: {e}>"]
 
+print("CWD:", os.getcwd())
+print("LS /:", _ls("/"))
+print("LS /workspace:", _ls("/workspace"))
+print("LS /workspace (recursive shallow):")
+try:
+    base = Path("/workspace")
+    hits = list(base.rglob("sample_video.py"))
+    print("FOUND sample_video.py:", [str(h) for h in hits[:20]])
+except Exception as e:
+    print("rglob err:", e)
+    
 def _coerce_video_size(v):
     """
     Accept:
