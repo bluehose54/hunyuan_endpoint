@@ -9,6 +9,31 @@ from pathlib import Path
 
 import runpod
 
+
+def _ensure_ckpts_symlinks(model_base: str, workdir: str):
+    """
+    Create ./ckpts/hunyuan-video-t2v-720p structure inside WORKDIR
+    and symlink it to the Network Volume model directory.
+    """
+    model_base_p = Path(model_base)
+    workdir_p = Path(workdir)
+
+    ckpt_root = workdir_p / "ckpts" / model_base_p.name
+    ckpt_root.mkdir(parents=True, exist_ok=True)
+
+    for sub in ["vae", "transformers"]:
+        src = model_base_p / sub
+        dst = ckpt_root / sub
+
+        if not src.exists():
+            raise FileNotFoundError(f"Missing on volume: {src}")
+
+        if dst.exists() or dst.is_symlink():
+            continue
+
+        dst.symlink_to(src, target_is_directory=True)
+
+
 # ---- Volume + model locations (weights MUST live on Network Volume) ----
 VOLUME_ROOT = os.getenv("RUNPOD_VOLUME_PATH", "/runpod-volume")
 
@@ -29,11 +54,13 @@ SCRIPT_NAME = os.getenv("HUNYUAN_SCRIPT", "sample_video.py")
 # ---- Output ----
 OUTPUT_ROOT = os.getenv("HUNYUAN_OUTPUT_ROOT", "/tmp/hunyuan_results")
 
+
 def _ls(p):
     try:
         return sorted(os.listdir(p))[:200]
     except Exception as e:
         return [f"<err: {e}>"]
+
 
 print("CWD:", os.getcwd())
 print("LS /:", _ls("/"))
@@ -45,7 +72,8 @@ try:
     print("FOUND sample_video.py:", [str(h) for h in hits[:20]])
 except Exception as e:
     print("rglob err:", e)
-    
+
+
 def _coerce_video_size(v):
     """
     Accept:
@@ -212,9 +240,16 @@ def handler(event):
 
     # --- Run inference ---
     try:
+        _ensure_ckpts_symlinks(MODEL_BASE, str(script_dir))
+
+        # debug once
+        ckpt_root = Path(script_dir) / "ckpts" / Path(MODEL_BASE).name
+        print("CKPT_ROOT:", ckpt_root)
+        print("VAE_CONFIG_EXISTS:", (ckpt_root / "vae" / "config.json").exists())
+
         proc = subprocess.run(
             cmd,
-            cwd=str(script_dir),  # script-relative imports still work
+            cwd=str(script_dir),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
