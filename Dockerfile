@@ -10,11 +10,10 @@ ENV PYTHONUNBUFFERED=1 \
 # Install runpod
 RUN pip install --no-cache-dir runpod==1.7.9
 
-# 🔥 Force reinstall torch + torchvision together (guaranteed match)
-RUN pip install --no-cache-dir --upgrade --force-reinstall \
-    torch==2.4.0 \
-    torchvision==0.19.0 \
-    --index-url https://download.pytorch.org/whl/cu124
+RUN python3 -m pip install --no-cache-dir --upgrade --force-reinstall \
+    torch==2.4.0 torchvision==0.19.0 \
+    --index-url https://download.pytorch.org/whl/cu124 \
+ && python3 -m pip cache purge || true
 
 # Copy requirements first for layer caching
 COPY HunyuanVideo/requirements.txt /workspace/requirements.txt
@@ -32,7 +31,6 @@ RUN pip install --no-cache-dir --upgrade \
     tokenizers==0.20.3 \
     accelerate==1.1.1 \
     einops==0.7.0
-
 # Optional: video saving
 RUN pip install --no-cache-dir imageio imageio-ffmpeg
 
