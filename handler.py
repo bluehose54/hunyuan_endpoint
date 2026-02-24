@@ -12,14 +12,27 @@ import runpod
 
 def _ensure_ckpts_symlinks(model_base: str, workdir: str):
     """
-    Create ./ckpts/hunyuan-video-t2v-720p structure inside WORKDIR
+    Create ./ckpts/<model_base_folder> inside `workdir`
     and symlink it to the Network Volume model directory.
+
+    Example:
+      workdir=/workspace/HunyuanVideo
+      model_base=/runpod-volume/hunyuan_models/hunyuan-video-t2v-720p
+
+    Creates:
+      /workspace/HunyuanVideo/ckpts/hunyuan-video-t2v-720p/vae -> /runpod-volume/.../vae
+      /workspace/HunyuanVideo/ckpts/hunyuan-video-t2v-720p/transformers -> /runpod-volume/.../transformers
     """
-    model_base_p = Path(model_base)
-    workdir_p = Path(workdir)
+    model_base_p = Path(model_base).resolve()
+    workdir_p = Path(workdir).resolve()
 
     ckpt_root = workdir_p / "ckpts" / model_base_p.name
     ckpt_root.mkdir(parents=True, exist_ok=True)
+
+    # Debug: prove paths exist before running inference
+    vae_cfg = ckpt_root / "vae" / "config.json"
+    print(f"CKPT_ROOT: {ckpt_root} (exists={ckpt_root.exists()})", flush=True)
+    print(f"VAE_CFG:   {vae_cfg} (exists={vae_cfg.exists()})", flush=True)
 
     for sub in ["vae", "transformers"]:
         src = model_base_p / sub
@@ -29,6 +42,7 @@ def _ensure_ckpts_symlinks(model_base: str, workdir: str):
             raise FileNotFoundError(f"Missing on volume: {src}")
 
         if dst.exists() or dst.is_symlink():
+            # If already linked/exists, don't touch it
             continue
 
         dst.symlink_to(src, target_is_directory=True)
