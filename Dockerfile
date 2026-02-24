@@ -7,18 +7,25 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/workspace/HunyuanVideo
 
+# Install runpod
 RUN pip install --no-cache-dir runpod==1.7.9
 
-# Bring in the repo code (no weights)
-COPY HunyuanVideo/ /workspace/HunyuanVideo/
+# 🔥 Force reinstall torch + torchvision together (guaranteed match)
+RUN pip install --no-cache-dir --upgrade --force-reinstall \
+    torch==2.4.0 \
+    torchvision==0.19.0 \
+    --index-url https://download.pytorch.org/whl/cu124
 
-# Install repo deps first
-RUN pip install --no-cache-dir -r /workspace/HunyuanVideo/requirements.txt
+# Copy requirements first for layer caching
+COPY HunyuanVideo/requirements.txt /workspace/requirements.txt
 
-# Fix optree warning
+# Install repo deps (without torch pin)
+RUN pip install --no-cache-dir -r /workspace/requirements.txt
+
+# Fix optree
 RUN pip install --no-cache-dir --upgrade "optree>=0.13.0"
 
-# Force compatible versions for HunyuanVideo (last write wins)
+# Force compatible stack
 RUN pip install --no-cache-dir --upgrade \
     diffusers==0.31.0 \
     transformers==4.46.3 \
@@ -26,14 +33,11 @@ RUN pip install --no-cache-dir --upgrade \
     accelerate==1.1.1 \
     einops==0.7.0
 
-# Reinstall torchvision to match torch 2.4.0 + CUDA 12.4 (fixes torchvision::nms)
-RUN pip install --no-cache-dir --upgrade --force-reinstall \
-    torchvision==0.19.0 \
-    --index-url https://download.pytorch.org/whl/cu124
-
-# Only needed if your patched save function uses imageio (keep if unsure)
+# Optional: video saving
 RUN pip install --no-cache-dir imageio imageio-ffmpeg
 
+# Copy full repo
+COPY HunyuanVideo/ /workspace/HunyuanVideo/
 COPY handler.py /workspace/handler.py
 
 CMD ["python3", "-u", "/workspace/handler.py"]
